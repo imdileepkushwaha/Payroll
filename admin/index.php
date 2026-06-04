@@ -13,26 +13,30 @@ if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true
     <title>Admin Login - Payroll System</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="page-auth">
     <div class="login-wrapper">
         <div class="login-card">
-            <h2>Admin Login</h2>
+            <div class="login-brand">P</div>
+            <h2>Welcome back</h2>
+            <p class="login-subtitle">Sign in to manage payroll & attendance</p>
             <?php
             if (isset($_SESSION['login_error'])) {
-                echo "<div class='alert alert-error'>" . $_SESSION['login_error'] . "</div>";
+                echo "<div class='alert alert-error'>" . htmlspecialchars($_SESSION['login_error']) . "</div>";
                 unset($_SESSION['login_error']);
             }
             ?>
             <form action="authenticate.php" method="POST">
                 <div class="form-group">
-                    <input type="text" name="username" placeholder="Username" required>
+                    <label for="username">Username</label>
+                    <input type="text" name="username" id="username" placeholder="Enter your username" required autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <input type="password" name="password" placeholder="Password" required>
+                    <label for="password">Password</label>
+                    <input type="password" name="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">Login</button>
+                <button type="submit" class="btn btn-block">Sign in</button>
             </form>
-            <p style="margin-top: 20px; font-size: 12px; color: #666;">First time setup? <a href="setup.php">Run Setup</a></p>
+            <p class="login-footer">First time here? <a href="setup.php">Run database setup</a></p>
         </div>
     </div>
 </body>

@@ -1,6 +1,5 @@
 <?php
-// config.php
-session_start();
+// config.php — database only; start session in the page or includes/header.php
 
 $db_host = 'localhost';
 $db_user = 'root'; // Change if required
@@ -12,4 +11,7 @@ $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+
+require_once __DIR__ . '/includes/schema.php';
+ensure_database_schema($conn);
 ?>

@@ -1,10 +1,11 @@
 <?php
-// setup.php
 require 'config.php';
+require_once 'includes/schema.php';
 
-echo "<h3>Database Setup</h3>";
+$log = [];
+ensure_database_schema($conn);
+$log[] = ['ok', 'Database schema verified and updated.'];
 
-// Create Tables
 $sql = "
 CREATE TABLE IF NOT EXISTS `admin_users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -15,9 +16,9 @@ CREATE TABLE IF NOT EXISTS `admin_users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ";
 if ($conn->query($sql) === TRUE) {
-    echo "Table 'admin_users' created or already exists.<br>";
+    $log[] = ['ok', "Table 'admin_users' created or already exists."];
 } else {
-    echo "Error creating table: " . $conn->error . "<br>";
+    $log[] = ['err', "Error creating admin_users: " . $conn->error];
 }
 
 $sql = "
@@ -30,9 +31,9 @@ CREATE TABLE IF NOT EXISTS `employees` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ";
 if ($conn->query($sql) === TRUE) {
-    echo "Table 'employees' created or already exists.<br>";
+    $log[] = ['ok', "Table 'employees' created or already exists."];
 } else {
-    echo "Error creating table: " . $conn->error . "<br>";
+    $log[] = ['err', "Error creating employees: " . $conn->error];
 }
 
 $sql = "
@@ -46,12 +47,11 @@ CREATE TABLE IF NOT EXISTS `attendance` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ";
 if ($conn->query($sql) === TRUE) {
-    echo "Table 'attendance' created or already exists.<br>";
+    $log[] = ['ok', "Table 'attendance' created or already exists."];
 } else {
-    echo "Error creating table: " . $conn->error . "<br>";
+    $log[] = ['err', "Error creating attendance: " . $conn->error];
 }
 
-// Insert Default Admin
 $username = 'Admin';
 $password = 'Admin@6170';
 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -65,14 +65,36 @@ if ($result->num_rows == 0) {
     $stmt = $conn->prepare("INSERT INTO admin_users (username, password) VALUES (?, ?)");
     $stmt->bind_param("ss", $username, $hashed_password);
     if ($stmt->execute()) {
-        echo "Default admin user 'Admin' created successfully.<br>";
+        $log[] = ['ok', "Default admin user 'Admin' created successfully."];
     } else {
-        echo "Error inserting admin user: " . $conn->error . "<br>";
+        $log[] = ['err', "Error inserting admin user: " . $conn->error];
     }
 } else {
-    echo "Default admin user 'Admin' already exists.<br>";
+    $log[] = ['ok', "Default admin user 'Admin' already exists."];
 }
-
-echo "<h3>Setup Complete!</h3>";
-echo "<a href='index.php'>Go to Login</a>";
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Setup - Payroll</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="page-auth">
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-brand">P</div>
+            <h2>Database Setup</h2>
+            <p class="login-subtitle">Initializing tables and default admin account</p>
+            <div class="setup-log">
+                <?php foreach ($log as $entry): ?>
+                    <div class="<?php echo $entry[0] === 'ok' ? 'ok' : 'err'; ?>"><?php echo htmlspecialchars($entry[1]); ?></div>
+                <?php endforeach; ?>
+            </div>
+            <div class="alert alert-success">Setup complete! You can now sign in.</div>
+            <a href="index.php" class="btn btn-block">Go to Login</a>
+        </div>
+    </div>
+</body>
+</html>
