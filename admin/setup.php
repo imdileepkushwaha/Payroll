@@ -1,5 +1,11 @@
 <?php
 require 'config.php';
+
+if (!PAYROLL_ALLOW_SETUP_TOOLS) {
+    http_response_code(403);
+    die('Setup is disabled. Set PAYROLL_ALLOW_SETUP_TOOLS to true in config.php for local use only.');
+}
+
 require_once 'includes/schema.php';
 
 $log = [];

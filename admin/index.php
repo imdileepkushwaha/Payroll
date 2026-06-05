@@ -1,8 +1,13 @@
 <?php
-session_start();
-if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
-    header("Location: dashboard.php");
-    exit;
+require_once 'includes/session_auth.php';
+init_admin_session();
+if (!empty($_SESSION['admin_logged_in'])) {
+    if (is_admin_session_expired()) {
+        expire_admin_session();
+    } else {
+        header('Location: dashboard.php');
+        exit;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -19,6 +24,7 @@ if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true
             <div class="login-brand">P</div>
             <h2>Welcome back</h2>
             <p class="login-subtitle">Sign in to manage payroll & attendance</p>
+            <p class="login-hint">Sessions end after 30 minutes of inactivity.</p>
             <?php
             if (isset($_SESSION['login_error'])) {
                 echo "<div class='alert alert-error'>" . htmlspecialchars($_SESSION['login_error']) . "</div>";

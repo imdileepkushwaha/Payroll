@@ -3,14 +3,15 @@
  * One-time demo data: fills employee details + attendance for salary slip testing.
  * Visit while logged in as admin, then delete this file in production.
  */
-session_start();
+require_once 'includes/session_auth.php';
+enforce_admin_session();
 require 'config.php';
-require 'includes/settings_helper.php';
 
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header('Location: index.php');
-    exit;
+if (!PAYROLL_ALLOW_SETUP_TOOLS) {
+    http_response_code(403);
+    die('Demo tools are disabled. Set PAYROLL_ALLOW_SETUP_TOOLS to true in config.php for local use only.');
 }
+require 'includes/settings_helper.php';
 
 $year = (int) date('Y');
 $month = (int) date('n');

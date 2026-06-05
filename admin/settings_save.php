@@ -1,18 +1,17 @@
 <?php
-session_start();
+require_once 'includes/session_auth.php';
+enforce_admin_session();
+require_once 'includes/csrf_helper.php';
 require 'config.php';
 require 'includes/settings_helper.php';
 require 'includes/signature_helper.php';
-
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header('Location: index.php');
-    exit;
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: settings.php');
     exit;
 }
+
+require_csrf_or_redirect('settings.php');
 
 $section = $_POST['section'] ?? '';
 
@@ -82,6 +81,17 @@ if ($section === 'payroll') {
     set_setting($conn, 'company_name', trim($_POST['company_name'] ?? ''));
     set_setting($conn, 'working_days_per_month', trim($_POST['working_days_per_month'] ?? '26'));
     set_setting($conn, 'signature_authority_name', trim($_POST['signature_authority_name'] ?? 'Authorized Signatory'));
+    set_setting($conn, 'pct_basic', trim($_POST['pct_basic'] ?? '50'));
+    set_setting($conn, 'pct_hra', trim($_POST['pct_hra'] ?? '20'));
+    set_setting($conn, 'pct_conveyance', trim($_POST['pct_conveyance'] ?? '5'));
+    set_setting($conn, 'pct_medical', trim($_POST['pct_medical'] ?? '5'));
+    set_setting($conn, 'pct_special', trim($_POST['pct_special'] ?? '20'));
+    set_setting($conn, 'pf_percent', trim($_POST['pf_percent'] ?? '12'));
+    set_setting($conn, 'professional_tax', trim($_POST['professional_tax'] ?? '200'));
+    set_setting($conn, 'esi_percent', trim($_POST['esi_percent'] ?? '0.75'));
+    set_setting($conn, 'esi_gross_limit', trim($_POST['esi_gross_limit'] ?? '21000'));
+    set_setting($conn, 'leave_day_credit', trim($_POST['leave_day_credit'] ?? '1'));
+    set_setting($conn, 'half_day_credit', trim($_POST['half_day_credit'] ?? '0.5'));
 
     $messages = ['Payroll settings saved.'];
 
@@ -106,6 +116,48 @@ if ($section === 'payroll') {
     $_SESSION['flash_success'] = true;
     header('Location: settings.php?tab=payroll');
     exit;
+}
+
+if ($section === 'admins') {
+    $action = $_POST['admin_action'] ?? '';
+
+    if ($action === 'add') {
+        $new_user = trim($_POST['new_username'] ?? '');
+        $new_pass = $_POST['new_password'] ?? '';
+        if ($new_user === '' || strlen($new_pass) < 6) {
+            $_SESSION['flash_message'] = 'Username required and password min 6 characters.';
+            $_SESSION['flash_success'] = false;
+        } else {
+            $hash = password_hash($new_pass, PASSWORD_DEFAULT);
+            $stmt = $conn->prepare('INSERT INTO admin_users (username, password) VALUES (?, ?)');
+            $stmt->bind_param('ss', $new_user, $hash);
+            if ($stmt->execute()) {
+                $_SESSION['flash_message'] = 'Admin user added.';
+                $_SESSION['flash_success'] = true;
+            } else {
+                $_SESSION['flash_message'] = 'Could not add user (username may exist).';
+                $_SESSION['flash_success'] = false;
+            }
+        }
+        header('Location: settings.php?tab=admins');
+        exit;
+    }
+
+    if ($action === 'delete') {
+        $del_user = trim($_POST['delete_username'] ?? '');
+        if ($del_user === $_SESSION['admin_username']) {
+            $_SESSION['flash_message'] = 'You cannot delete your own account while logged in.';
+            $_SESSION['flash_success'] = false;
+        } elseif ($del_user !== '') {
+            $stmt = $conn->prepare('DELETE FROM admin_users WHERE username = ?');
+            $stmt->bind_param('s', $del_user);
+            $stmt->execute();
+            $_SESSION['flash_message'] = 'Admin user removed.';
+            $_SESSION['flash_success'] = true;
+        }
+        header('Location: settings.php?tab=admins');
+        exit;
+    }
 }
 
 header('Location: settings.php');

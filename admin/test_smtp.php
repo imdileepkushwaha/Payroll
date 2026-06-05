@@ -1,13 +1,9 @@
 <?php
-session_start();
+require_once 'includes/session_auth.php';
+enforce_admin_session();
 require 'config.php';
 require 'includes/settings_helper.php';
 require 'includes/mailer.php';
-
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header('Location: index.php');
-    exit;
-}
 
 $settings = get_all_settings($conn);
 $test_to = trim($_POST['test_email'] ?? $settings['smtp_from_email'] ?? '');

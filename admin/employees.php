@@ -1,30 +1,58 @@
 <?php
 require 'includes/header.php';
 require 'config.php';
+require 'includes/employee_helper.php';
 
-$search = trim($_GET['q'] ?? '');
-$sql = "SELECT * FROM employees";
-$params = [];
+$filter_status = $_GET['status'] ?? 'all';
+$filter_dept = trim($_GET['dept'] ?? '');
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$per_page = 25;
+$offset = ($page - 1) * $per_page;
+
+$where_sql = '1=1';
 $types = '';
-
-if ($search !== '') {
-    $sql .= " WHERE emp_id LIKE ? OR name LIKE ? OR email LIKE ? OR department LIKE ? OR designation LIKE ?";
-    $like = '%' . $search . '%';
-    $params = [$like, $like, $like, $like, $like];
-    $types = 'sssss';
+$params = [];
+if ($filter_status === 'active') {
+    $where_sql .= ' AND is_active = 1';
+} elseif ($filter_status === 'inactive') {
+    $where_sql .= ' AND is_active = 0';
+}
+if ($filter_dept !== '') {
+    $where_sql .= ' AND department = ?';
+    $types .= 's';
+    $params[] = $filter_dept;
 }
 
-$sql .= " ORDER BY name ASC";
-$stmt = $conn->prepare($sql);
-if ($params) {
-    $stmt->bind_param($types, ...$params);
+$count_sql = "SELECT COUNT(*) AS c FROM employees WHERE $where_sql";
+$count_stmt = $conn->prepare($count_sql);
+if ($types !== '') {
+    $count_stmt->bind_param($types, ...$params);
 }
-$stmt->execute();
-$employees = $stmt->get_result();
+$count_stmt->execute();
+$filtered_total = (int) $count_stmt->get_result()->fetch_assoc()['c'];
+$total_pages = max(1, (int) ceil($filtered_total / $per_page));
+if ($page > $total_pages) {
+    $page = $total_pages;
+    $offset = ($page - 1) * $per_page;
+}
+
+$list_sql = "SELECT * FROM employees WHERE $where_sql ORDER BY name ASC LIMIT $per_page OFFSET $offset";
+$list_stmt = $conn->prepare($list_sql);
+if ($types !== '') {
+    $list_stmt->bind_param($types, ...$params);
+}
+$list_stmt->execute();
+$employees = $list_stmt->get_result();
+
+$dept_list = $conn->query("SELECT DISTINCT department FROM employees WHERE department IS NOT NULL AND department != '' ORDER BY department");
 
 $total_all = (int) $conn->query("SELECT COUNT(*) AS c FROM employees")->fetch_assoc()['c'];
-$with_email = (int) $conn->query("SELECT COUNT(*) AS c FROM employees WHERE email IS NOT NULL AND email != ''")->fetch_assoc()['c'];
+$active_count = (int) $conn->query("SELECT COUNT(*) AS c FROM employees WHERE is_active = 1")->fetch_assoc()['c'];
+$inactive_count = $total_all - $active_count;
+$with_email_active = (int) $conn->query("SELECT COUNT(*) AS c FROM employees WHERE is_active = 1 AND email IS NOT NULL AND email != ''")->fetch_assoc()['c'];
 $listed = $employees ? $employees->num_rows : 0;
+
+require_once 'includes/csrf_helper.php';
 ?>
 <div class="page-header page-header-row">
     <div class="page-header-main">
@@ -46,18 +74,49 @@ $listed = $employees ? $employees->num_rows : 0;
     </div>
 <?php endif; ?>
 
+<?php
+$email_pct = $active_count > 0 ? round(($with_email_active / $active_count) * 100) : 0;
+?>
 <div class="emp-stats">
-    <div class="emp-stat-chip">
-        <span class="emp-stat-label">Total staff</span>
-        <strong><?php echo $total_all; ?></strong>
+    <div class="emp-stat-card emp-stat-total">
+        <div class="emp-stat-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="emp-stat-body">
+            <span class="emp-stat-label">Total staff</span>
+            <strong class="emp-stat-value"><?php echo $total_all; ?></strong>
+            <span class="emp-stat-hint"><?php echo $inactive_count > 0 ? $inactive_count . ' inactive' : 'All registered employees'; ?></span>
+        </div>
     </div>
-    <div class="emp-stat-chip">
-        <span class="emp-stat-label">With email</span>
-        <strong><?php echo $with_email; ?></strong>
+    <div class="emp-stat-card emp-stat-active">
+        <div class="emp-stat-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="emp-stat-body">
+            <span class="emp-stat-label">Active staff</span>
+            <strong class="emp-stat-value"><?php echo $active_count; ?></strong>
+            <span class="emp-stat-hint">Eligible for salary slip emails</span>
+        </div>
     </div>
-    <div class="emp-stat-chip">
-        <span class="emp-stat-label"><?php echo $search !== '' ? 'Showing' : 'Listed'; ?></span>
-        <strong><?php echo $listed; ?></strong>
+    <div class="emp-stat-card emp-stat-email">
+        <div class="emp-stat-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        <div class="emp-stat-body">
+            <span class="emp-stat-label">Active with email</span>
+            <strong class="emp-stat-value"><?php echo $with_email_active; ?></strong>
+            <span class="emp-stat-hint"><?php echo $email_pct; ?>% of active staff</span>
+        </div>
+    </div>
+    <div class="emp-stat-card emp-stat-listed" id="empStatListedCard">
+        <div class="emp-stat-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div class="emp-stat-body">
+            <span class="emp-stat-label" id="empStatListedLabel">In directory</span>
+            <strong class="emp-stat-value" id="empStatListed"><?php echo $listed; ?></strong>
+            <span class="emp-stat-hint" id="empStatListedHint">Currently listed below</span>
+        </div>
     </div>
 </div>
 
@@ -65,16 +124,26 @@ $listed = $employees ? $employees->num_rows : 0;
     <div class="panel-header employees-panel-head">
         <div class="panel-title-group">
             <h3>Employee directory</h3>
-            <span class="panel-badge"><?php echo $listed; ?> records</span>
+            <span class="panel-badge" id="empDirectoryCount"><?php echo $listed; ?> records</span>
         </div>
-        <form method="GET" class="emp-search">
-            <svg class="emp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="search" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search ID, name, email, dept…" autocomplete="off">
-            <button type="submit" class="btn btn-sm">Search</button>
-            <?php if ($search !== ''): ?>
-                <a href="employees.php" class="btn btn-sm btn-outline">Clear</a>
-            <?php endif; ?>
+        <form method="GET" class="emp-filters inline-filter">
+            <select name="status" onchange="this.form.submit()">
+                <option value="all" <?php echo $filter_status === 'all' ? 'selected' : ''; ?>>All status</option>
+                <option value="active" <?php echo $filter_status === 'active' ? 'selected' : ''; ?>>Active only</option>
+                <option value="inactive" <?php echo $filter_status === 'inactive' ? 'selected' : ''; ?>>Inactive only</option>
+            </select>
+            <select name="dept" onchange="this.form.submit()">
+                <option value="">All departments</option>
+                <?php if ($dept_list): while ($d = $dept_list->fetch_assoc()): ?>
+                    <option value="<?php echo htmlspecialchars($d['department']); ?>" <?php echo $filter_dept === $d['department'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($d['department']); ?></option>
+                <?php endwhile; endif; ?>
+            </select>
         </form>
+        <div class="emp-search">
+            <svg class="emp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="empDirectorySearch" placeholder="Search ID, name, email, dept…" autocomplete="off" aria-label="Search employees">
+            <button type="button" class="emp-search-clear" id="empSearchClear" hidden aria-label="Clear search">&times;</button>
+        </div>
     </div>
     <div class="panel-body">
         <?php if ($employees && $employees->num_rows > 0): ?>
@@ -94,8 +163,17 @@ $listed = $employees ? $employees->num_rows : 0;
                             <?php
                             $initial = strtoupper(substr($emp['name'], 0, 1));
                             $has_email = !empty($emp['email']);
+                            $is_active = employee_is_active($emp);
+                            $search_blob = strtolower(implode(' ', [
+                                $emp['emp_id'],
+                                $emp['name'],
+                                $emp['email'] ?? '',
+                                $emp['phone'] ?? '',
+                                $emp['department'] ?? '',
+                                $emp['designation'] ?? '',
+                            ]));
                             ?>
-                            <tr class="emp-row" data-employee="<?php echo htmlspecialchars(json_encode([
+                            <tr class="emp-row<?php echo $is_active ? '' : ' emp-row-inactive'; ?>" data-search="<?php echo htmlspecialchars($search_blob, ENT_QUOTES, 'UTF-8'); ?>" data-employee="<?php echo htmlspecialchars(json_encode([
                                 'emp_id' => $emp['emp_id'],
                                 'name' => $emp['name'],
                                 'email' => $emp['email'] ?? '',
@@ -103,7 +181,11 @@ $listed = $employees ? $employees->num_rows : 0;
                                 'department' => $emp['department'] ?? '',
                                 'designation' => $emp['designation'] ?? '',
                                 'base_salary' => $emp['base_salary'],
-                                'joined_date' => $emp['joined_date'] ?? '',
+                                'joined_date' => normalize_joined_date_for_input($emp['joined_date'] ?? null),
+                                'pan' => $emp['pan'] ?? '',
+                                'bank_name' => $emp['bank_name'] ?? '',
+                                'bank_account' => $emp['bank_account'] ?? '',
+                                'bank_ifsc' => $emp['bank_ifsc'] ?? '',
                             ]), ENT_QUOTES, 'UTF-8'); ?>">
                                 <td>
                                     <div class="cell-employee">
@@ -111,6 +193,11 @@ $listed = $employees ? $employees->num_rows : 0;
                                         <div>
                                             <span class="emp-name"><?php echo htmlspecialchars($emp['name']); ?></span>
                                             <span class="emp-id"><?php echo htmlspecialchars($emp['emp_id']); ?></span>
+                                            <?php if ($is_active): ?>
+                                                <span class="badge badge-active-status">Active</span>
+                                            <?php else: ?>
+                                                <span class="badge badge-inactive-status">Inactive</span>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </td>
@@ -148,7 +235,19 @@ $listed = $employees ? $employees->num_rows : 0;
                                         <button type="button" class="btn-action btn-edit" title="Edit employee" onclick="openEditEmployee(this)">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                         </button>
+                                        <form method="POST" action="employee_toggle_active.php" class="action-toggle-form" onsubmit="return confirmToggleStatus(<?php echo json_encode($emp['name']); ?>, <?php echo $is_active ? 'true' : 'false'; ?>);">
+                                            <?php echo csrf_field(); ?>
+                                            <input type="hidden" name="emp_id" value="<?php echo htmlspecialchars($emp['emp_id']); ?>">
+                                            <button type="submit" class="btn-action <?php echo $is_active ? 'btn-deactivate' : 'btn-activate'; ?>" title="<?php echo $is_active ? 'Deactivate — no salary emails' : 'Activate employee'; ?>">
+                                                <?php if ($is_active): ?>
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                                                <?php else: ?>
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                                <?php endif; ?>
+                                            </button>
+                                        </form>
                                         <form method="POST" action="employee_delete.php" class="action-delete-form" onsubmit="return confirmDelete(<?php echo json_encode($emp['name']); ?>, <?php echo json_encode($emp['emp_id']); ?>);">
+                                            <?php echo csrf_field(); ?>
                                             <input type="hidden" name="emp_id" value="<?php echo htmlspecialchars($emp['emp_id']); ?>">
                                             <button type="submit" class="btn-action btn-delete" title="Delete employee">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -161,18 +260,25 @@ $listed = $employees ? $employees->num_rows : 0;
                     </tbody>
                 </table>
             </div>
+            <?php if ($total_pages > 1): ?>
+            <nav class="pagination-bar" aria-label="Employee pages">
+                <?php for ($p = 1; $p <= $total_pages; $p++): ?>
+                    <a href="?page=<?php echo $p; ?>&status=<?php echo urlencode($filter_status); ?>&dept=<?php echo urlencode($filter_dept); ?>" class="pagination-link <?php echo $p === $page ? 'active' : ''; ?>"><?php echo $p; ?></a>
+                <?php endfor; ?>
+            </nav>
+            <?php endif; ?>
+            <div class="empty-state compact" id="empSearchEmpty" hidden>
+                <h4>No matches found</h4>
+                <p>Try a different search term.</p>
+            </div>
         <?php else: ?>
             <div class="empty-state">
                 <div class="empty-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
-                <h4><?php echo $search !== '' ? 'No matches found' : 'No employees yet'; ?></h4>
-                <p><?php echo $search !== '' ? 'Try a different search term or clear filters.' : 'Add an employee or upload attendance to import staff from Excel.'; ?></p>
-                <?php if ($search !== ''): ?>
-                    <a href="employees.php" class="btn btn-outline">Clear search</a>
-                <?php else: ?>
-                    <button type="button" class="btn" onclick="document.getElementById('addEmployeeModal').showModal()">Add Employee</button>
-                <?php endif; ?>
+                <h4>No employees yet</h4>
+                <p>Add an employee or upload attendance to import staff from Excel.</p>
+                <button type="button" class="btn" onclick="document.getElementById('addEmployeeModal').showModal()">Add Employee</button>
             </div>
         <?php endif; ?>
     </div>
@@ -180,6 +286,7 @@ $listed = $employees ? $employees->num_rows : 0;
 
 <dialog class="modal modal-employee" id="addEmployeeModal">
     <form method="POST" action="employee_save.php" class="modal-form">
+        <?php echo csrf_field(); ?>
         <input type="hidden" name="action" value="add">
         <div class="modal-head">
             <div class="modal-head-content">
@@ -249,6 +356,17 @@ $listed = $employees ? $employees->num_rows : 0;
                     </div>
                 </div>
             </div>
+            <div class="modal-section">
+                <h4 class="modal-section-title">Bank &amp; tax (optional)</h4>
+                <div class="form-row">
+                    <div class="form-group"><label for="pan">PAN</label><input type="text" name="pan" id="pan"></div>
+                    <div class="form-group"><label for="bank_name">Bank</label><input type="text" name="bank_name" id="bank_name"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="bank_account">Account</label><input type="text" name="bank_account" id="bank_account"></div>
+                    <div class="form-group"><label for="bank_ifsc">IFSC</label><input type="text" name="bank_ifsc" id="bank_ifsc"></div>
+                </div>
+            </div>
         </div>
         <div class="modal-foot">
             <button type="button" class="btn btn-outline" onclick="document.getElementById('addEmployeeModal').close()">Cancel</button>
@@ -262,6 +380,7 @@ $listed = $employees ? $employees->num_rows : 0;
 
 <dialog class="modal modal-employee" id="editEmployeeModal">
     <form method="POST" action="employee_save.php" class="modal-form">
+        <?php echo csrf_field(); ?>
         <input type="hidden" name="action" value="update">
         <input type="hidden" name="emp_id" id="edit_emp_id">
         <div class="modal-head">
@@ -331,6 +450,17 @@ $listed = $employees ? $employees->num_rows : 0;
                     </div>
                 </div>
             </div>
+            <div class="modal-section">
+                <h4 class="modal-section-title">Bank &amp; tax</h4>
+                <div class="form-row">
+                    <div class="form-group"><label for="edit_pan">PAN</label><input type="text" name="pan" id="edit_pan"></div>
+                    <div class="form-group"><label for="edit_bank_name">Bank</label><input type="text" name="bank_name" id="edit_bank_name"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="edit_bank_account">Account</label><input type="text" name="bank_account" id="edit_bank_account"></div>
+                    <div class="form-group"><label for="edit_bank_ifsc">IFSC</label><input type="text" name="bank_ifsc" id="edit_bank_ifsc"></div>
+                </div>
+            </div>
         </div>
         <div class="modal-foot">
             <button type="button" class="btn btn-outline" onclick="document.getElementById('editEmployeeModal').close()">Cancel</button>
@@ -342,6 +472,13 @@ $listed = $employees ? $employees->num_rows : 0;
 <script>
 function confirmDelete(name, empId) {
     return confirm('Delete employee "' + name + '" (' + empId + ')?\n\nThis will also remove their attendance records. This cannot be undone.');
+}
+
+function confirmToggleStatus(name, isActive) {
+    if (isActive) {
+        return confirm('Deactivate "' + name + '"?\n\nThey will not receive salary slip emails while inactive. Attendance data is kept.');
+    }
+    return confirm('Activate "' + name + '"?\n\nThey can receive salary slip emails again if email and salary are set.');
 }
 
 function openEditEmployee(btn) {
@@ -356,7 +493,17 @@ function openEditEmployee(btn) {
     document.getElementById('edit_department').value = emp.department || '';
     document.getElementById('edit_designation').value = emp.designation || '';
     document.getElementById('edit_base_salary').value = emp.base_salary || 0;
-    document.getElementById('edit_joined_date').value = emp.joined_date || '';
+    var jd = emp.joined_date || '';
+    if (jd.indexOf('0000') === 0) {
+        jd = '';
+    } else if (jd.length >= 10) {
+        jd = jd.substring(0, 10);
+    }
+    document.getElementById('edit_joined_date').value = jd;
+    document.getElementById('edit_pan').value = emp.pan || '';
+    document.getElementById('edit_bank_name').value = emp.bank_name || '';
+    document.getElementById('edit_bank_account').value = emp.bank_account || '';
+    document.getElementById('edit_bank_ifsc').value = emp.bank_ifsc || '';
     document.getElementById('editEmployeeModal').showModal();
 }
 
@@ -367,6 +514,50 @@ document.addEventListener('DOMContentLoaded', function () {
             document.body.appendChild(modal);
         }
     });
+
+    var searchInput = document.getElementById('empDirectorySearch');
+    if (!searchInput) return;
+
+    var rows = document.querySelectorAll('.emp-table tbody .emp-row');
+    var badge = document.getElementById('empDirectoryCount');
+    var statListed = document.getElementById('empStatListed');
+    var statLabel = document.getElementById('empStatListedLabel');
+    var statHint = document.getElementById('empStatListedHint');
+    var statCard = document.getElementById('empStatListedCard');
+    var noResults = document.getElementById('empSearchEmpty');
+    var clearBtn = document.getElementById('empSearchClear');
+    var tableWrap = document.querySelector('.employees-panel .table-wrap');
+    var totalRows = rows.length;
+
+    function applyFilter() {
+        var q = searchInput.value.trim().toLowerCase();
+        var visible = 0;
+
+        rows.forEach(function (row) {
+            var haystack = row.getAttribute('data-search') || '';
+            var match = q === '' || haystack.indexOf(q) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+
+        if (badge) badge.textContent = visible + ' record' + (visible === 1 ? '' : 's');
+        if (statListed) statListed.textContent = visible;
+        if (statLabel) statLabel.textContent = q ? 'Search results' : 'In directory';
+        if (statHint) statHint.textContent = q ? 'Matching your search' : 'Currently listed below';
+        if (statCard) statCard.classList.toggle('is-filtered', q !== '');
+        if (clearBtn) clearBtn.hidden = q === '';
+        if (noResults) noResults.hidden = visible > 0 || totalRows === 0;
+        if (tableWrap) tableWrap.hidden = visible === 0 && totalRows > 0;
+    }
+
+    searchInput.addEventListener('input', applyFilter);
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            applyFilter();
+            searchInput.focus();
+        });
+    }
 });
 </script>
 

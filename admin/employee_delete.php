@@ -1,16 +1,15 @@
 <?php
-session_start();
+require_once 'includes/session_auth.php';
+enforce_admin_session();
+require_once 'includes/csrf_helper.php';
 require 'config.php';
-
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header('Location: index.php');
-    exit;
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: employees.php');
     exit;
 }
+
+require_csrf_or_redirect('employees.php');
 
 $emp_id = trim($_POST['emp_id'] ?? '');
 

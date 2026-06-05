@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once 'includes/session_auth.php';
+init_admin_session();
 require 'config.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -14,8 +15,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result->num_rows == 1) {
         $row = $result->fetch_assoc();
         if (password_verify($password, $row['password'])) {
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_username'] = $row['username'];
+            set_admin_session_on_login($row['username']);
             header("Location: dashboard.php");
             exit;
         } else {

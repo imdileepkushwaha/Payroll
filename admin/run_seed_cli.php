@@ -61,7 +61,7 @@ foreach ($employees as $emp) {
     $designation = $designations[$idx % count($designations)];
     $base_salary = 28000 + ($idx * 4500);
     $joined = sprintf('%d-%02d-15', $year - ($idx % 3 + 1), ($idx % 12) + 1);
-    $update->bind_param('ssssssds', $name, $email, $phone, $department, $designation, $base_salary, $joined, $emp['emp_id']);
+    $update->bind_param('sssssdss', $name, $email, $phone, $department, $designation, $base_salary, $joined, $emp['emp_id']);
     $update->execute();
 }
 echo 'Updated ' . count($employees) . " employees.\n";

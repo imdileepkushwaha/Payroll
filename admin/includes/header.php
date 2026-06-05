@@ -1,9 +1,6 @@
 <?php
-session_start();
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header("Location: index.php");
-    exit;
-}
+require_once __DIR__ . '/session_auth.php';
+enforce_admin_session();
 $current_page = basename($_SERVER['PHP_SELF']);
 $employees_active = in_array($current_page, ['employees.php', 'employee_view.php'], true);
 $admin_initial = strtoupper(substr($_SESSION['admin_username'], 0, 1));
@@ -38,6 +35,18 @@ $admin_initial = strtoupper(substr($_SESSION['admin_username'], 0, 1));
                 <a href="upload_attendance.php" class="<?php echo $current_page === 'upload_attendance.php' ? 'active' : ''; ?>">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <span>Upload Attendance</span>
+                </a>
+            </li>
+            <li>
+                <a href="reports.php" class="<?php echo $current_page === 'reports.php' ? 'active' : ''; ?>">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>Reports</span>
+                </a>
+            </li>
+            <li>
+                <a href="slip_logs.php" class="<?php echo $current_page === 'slip_logs.php' ? 'active' : ''; ?>">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    <span>Slip history</span>
                 </a>
             </li>
             <li>

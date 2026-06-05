@@ -19,7 +19,12 @@ CREATE TABLE IF NOT EXISTS `employees` (
   `department` varchar(100) DEFAULT NULL,
   `designation` varchar(100) DEFAULT NULL,
   `base_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `pan` varchar(20) DEFAULT NULL,
+  `bank_account` varchar(40) DEFAULT NULL,
+  `bank_ifsc` varchar(20) DEFAULT NULL,
+  `bank_name` varchar(100) DEFAULT NULL,
   `joined_date` date DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `emp_id` (`emp_id`)

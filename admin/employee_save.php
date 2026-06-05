@@ -1,16 +1,16 @@
 <?php
-session_start();
+require_once 'includes/session_auth.php';
+enforce_admin_session();
+require_once 'includes/csrf_helper.php';
 require 'config.php';
-
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header('Location: index.php');
-    exit;
-}
+require 'includes/employee_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: employees.php');
     exit;
 }
+
+require_csrf_or_redirect('employees.php');
 
 $action = $_POST['action'] ?? '';
 
@@ -22,8 +22,11 @@ if ($action === 'add') {
     $department = trim($_POST['department'] ?? '');
     $designation = trim($_POST['designation'] ?? '');
     $base_salary = (float) ($_POST['base_salary'] ?? 0);
-    $joined_date = trim($_POST['joined_date'] ?? '');
-    $joined_date = $joined_date !== '' ? $joined_date : null;
+    $pan = trim($_POST['pan'] ?? '');
+    $bank_account = trim($_POST['bank_account'] ?? '');
+    $bank_ifsc = trim($_POST['bank_ifsc'] ?? '');
+    $bank_name = trim($_POST['bank_name'] ?? '');
+    $joined_date = parse_joined_date_from_post($_POST['joined_date'] ?? '');
 
     if ($emp_id === '' || $name === '') {
         $_SESSION['flash_message'] = 'Employee ID and name are required.';
@@ -32,11 +35,19 @@ if ($action === 'add') {
         exit;
     }
 
-    $stmt = $conn->prepare("
-        INSERT INTO employees (emp_id, name, email, phone, department, designation, base_salary, joined_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    $stmt->bind_param('ssssssds', $emp_id, $name, $email, $phone, $department, $designation, $base_salary, $joined_date);
+    if ($joined_date === null) {
+        $stmt = $conn->prepare("
+            INSERT INTO employees (emp_id, name, email, phone, department, designation, base_salary, pan, bank_account, bank_ifsc, bank_name, joined_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+        ");
+        $stmt->bind_param('ssssssdssss', $emp_id, $name, $email, $phone, $department, $designation, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name);
+    } else {
+        $stmt = $conn->prepare("
+            INSERT INTO employees (emp_id, name, email, phone, department, designation, base_salary, pan, bank_account, bank_ifsc, bank_name, joined_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->bind_param('ssssssdsssss', $emp_id, $name, $email, $phone, $department, $designation, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $joined_date);
+    }
 
     if ($stmt->execute()) {
         $_SESSION['flash_message'] = 'Employee added successfully.';
@@ -57,24 +68,39 @@ if ($action === 'update') {
     $department = trim($_POST['department'] ?? '');
     $designation = trim($_POST['designation'] ?? '');
     $base_salary = (float) ($_POST['base_salary'] ?? 0);
+    $pan = trim($_POST['pan'] ?? '');
+    $bank_account = trim($_POST['bank_account'] ?? '');
+    $bank_ifsc = trim($_POST['bank_ifsc'] ?? '');
+    $bank_name = trim($_POST['bank_name'] ?? '');
+    $joined_date = parse_joined_date_from_post($_POST['joined_date'] ?? '');
 
-    $joined_date = trim($_POST['joined_date'] ?? '');
-    $joined_date = $joined_date !== '' ? $joined_date : null;
-
-    $stmt = $conn->prepare("
-        UPDATE employees SET name=?, email=?, phone=?, department=?, designation=?, base_salary=?, joined_date=?
-        WHERE emp_id=?
-    ");
-    $stmt->bind_param('ssssssds', $name, $email, $phone, $department, $designation, $base_salary, $joined_date, $emp_id);
+    if ($joined_date === null) {
+        $stmt = $conn->prepare("
+            UPDATE employees SET name=?, email=?, phone=?, department=?, designation=?, base_salary=?, pan=?, bank_account=?, bank_ifsc=?, bank_name=?, joined_date=NULL
+            WHERE emp_id=?
+        ");
+        $stmt->bind_param('sssssdsssss', $name, $email, $phone, $department, $designation, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $emp_id);
+    } else {
+        $stmt = $conn->prepare("
+            UPDATE employees SET name=?, email=?, phone=?, department=?, designation=?, base_salary=?, pan=?, bank_account=?, bank_ifsc=?, bank_name=?, joined_date=?
+            WHERE emp_id=?
+        ");
+        $stmt->bind_param('sssssdssssss', $name, $email, $phone, $department, $designation, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $joined_date, $emp_id);
+    }
 
     if ($stmt->execute()) {
         $_SESSION['flash_message'] = 'Employee updated successfully.';
         $_SESSION['flash_success'] = true;
     } else {
-        $_SESSION['flash_message'] = 'Update failed.';
+        $_SESSION['flash_message'] = 'Update failed: ' . $conn->error;
         $_SESSION['flash_success'] = false;
     }
-    header('Location: employee_view.php?emp_id=' . urlencode($emp_id));
+
+    $redirect = 'employee_view.php?emp_id=' . urlencode($emp_id);
+    if (!empty($_POST['return_month']) && !empty($_POST['return_year'])) {
+        $redirect .= '&month=' . (int) $_POST['return_month'] . '&year=' . (int) $_POST['return_year'];
+    }
+    header('Location: ' . $redirect);
     exit;
 }
 

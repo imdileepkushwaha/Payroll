@@ -22,6 +22,7 @@ function ensure_database_schema($conn)
             `designation` varchar(100) DEFAULT NULL,
             `base_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
             `joined_date` date DEFAULT NULL,
+            `is_active` tinyint(1) NOT NULL DEFAULT 1,
             `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
             UNIQUE KEY `emp_id` (`emp_id`)
@@ -65,6 +66,11 @@ function ensure_database_schema($conn)
         'base_salary' => "ALTER TABLE `employees` ADD COLUMN `base_salary` decimal(12,2) NOT NULL DEFAULT 0.00",
         'joined_date' => "ALTER TABLE `employees` ADD COLUMN `joined_date` date DEFAULT NULL",
         'created_at' => "ALTER TABLE `employees` ADD COLUMN `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        'is_active' => "ALTER TABLE `employees` ADD COLUMN `is_active` tinyint(1) NOT NULL DEFAULT 1",
+        'pan' => "ALTER TABLE `employees` ADD COLUMN `pan` varchar(20) DEFAULT NULL",
+        'bank_account' => "ALTER TABLE `employees` ADD COLUMN `bank_account` varchar(40) DEFAULT NULL",
+        'bank_ifsc' => "ALTER TABLE `employees` ADD COLUMN `bank_ifsc` varchar(20) DEFAULT NULL",
+        'bank_name' => "ALTER TABLE `employees` ADD COLUMN `bank_name` varchar(100) DEFAULT NULL",
     ];
 
     foreach ($employee_columns as $column => $sql) {
@@ -100,6 +106,17 @@ function seed_default_settings($conn)
         'smtp_from_name' => 'Payroll System',
         'payslip_signature' => '',
         'signature_authority_name' => 'Authorized Signatory',
+        'pct_basic' => '50',
+        'pct_hra' => '20',
+        'pct_conveyance' => '5',
+        'pct_medical' => '5',
+        'pct_special' => '20',
+        'pf_percent' => '12',
+        'professional_tax' => '200',
+        'esi_percent' => '0.75',
+        'esi_gross_limit' => '21000',
+        'leave_day_credit' => '1',
+        'half_day_credit' => '0.5',
     ];
 
     foreach ($defaults as $key => $value) {
