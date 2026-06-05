@@ -3,7 +3,7 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require 'config.php';
 require 'includes/settings_helper.php';
-require 'includes/salary_helper.php';
+require_once 'includes/salary_helper.php';
 require 'includes/pdf_slip.php';
 
 $emp_id = trim($_GET['emp_id'] ?? '');
@@ -28,8 +28,7 @@ if (!$employee) {
 }
 
 $settings = get_all_settings($conn);
-$stats = get_attendance_stats_for_period($conn, $emp_id, $year, $month);
-$salary = calculate_employee_salary($employee, $stats, $settings);
+$salary = calculate_employee_salary_full($conn, $employee, $year, $month, $settings);
 $pdf = generate_salary_slip_pdf($employee, $salary, $settings, $year, $month);
 $filename = salary_slip_pdf_filename($employee, $year, $month);
 

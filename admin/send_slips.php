@@ -4,9 +4,7 @@ enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
 require 'includes/settings_helper.php';
-require 'includes/salary_helper.php';
 require 'includes/mailer.php';
-require 'includes/pdf_slip.php';
 require 'includes/employee_helper.php';
 
 function send_slips_wants_json()
@@ -44,6 +42,8 @@ $month = (int) ($_POST['month'] ?? date('n'));
 $year = (int) ($_POST['year'] ?? date('Y'));
 $period = get_period_label($year, $month);
 $selected_ids = isset($_POST['emp_ids']) && is_array($_POST['emp_ids']) ? array_map('trim', $_POST['emp_ids']) : [];
+$include_sent = !empty($_POST['include_already_sent']);
+$resend_failed_only = !empty($_POST['resend_failed_only']);
 
 if ($month < 1 || $month > 12 || $year < 2000) {
     if ($is_ajax) {
@@ -57,6 +57,17 @@ if ($month < 1 || $month > 12 || $year < 2000) {
 
 $settings = get_all_settings($conn);
 
+if (!empty($settings['require_payroll_approval']) && (int) $settings['require_payroll_approval'] === 1 && !can_send_slips_for_period($conn, $year, $month)) {
+    $msg = 'Payroll must be approved before sending slips. Use Approve on the dashboard.';
+    if ($is_ajax) {
+        send_slips_json_response(false, $msg);
+    }
+    $_SESSION['flash_message'] = $msg;
+    $_SESSION['flash_success'] = false;
+    header('Location: dashboard.php?month=' . $month . '&year=' . $year);
+    exit;
+}
+
 if (!is_smtp_configured($settings) || empty($settings['smtp_password'])) {
     if ($is_ajax) {
         send_slips_json_response(false, 'Configure SMTP and save password in Settings before sending.');
@@ -67,6 +78,7 @@ if (!is_smtp_configured($settings) || empty($settings['smtp_password'])) {
     exit;
 }
 
+$slip_status_map = get_slip_send_status_for_period($conn, $year, $month);
 $employees = $conn->query('SELECT * FROM employees ORDER BY name');
 $to_send = [];
 
@@ -83,15 +95,25 @@ while ($emp = $employees->fetch_assoc()) {
     if ((float) $emp['base_salary'] <= 0) {
         continue;
     }
-    $stats = get_attendance_stats_for_period($conn, $emp['emp_id'], $year, $month);
+    $stats = get_attendance_stats_extended($conn, $emp['emp_id'], $year, $month, $settings);
     if ($stats['total_records'] === 0) {
         continue;
     }
+
+    $sent_info = $slip_status_map[$emp['emp_id']] ?? null;
+    if ($resend_failed_only) {
+        if (!$sent_info || ($sent_info['status'] ?? '') !== 'failed') {
+            continue;
+        }
+    } elseif (!$include_sent && employee_slip_already_sent($conn, $emp['emp_id'], $year, $month)) {
+        continue;
+    }
+
     $to_send[] = $emp;
 }
 
 if (count($to_send) === 0) {
-    $msg = "No eligible employees for {$period}. Need active, email, salary, and attendance.";
+    $msg = "No eligible employees for {$period}. Check attendance, approval, or include already-sent option.";
     if ($is_ajax) {
         send_slips_json_response(false, $msg);
     }
@@ -118,33 +140,12 @@ $failed = 0;
 $errors = [];
 
 foreach ($to_send as $emp) {
-    $stats = get_attendance_stats_for_period($conn, $emp['emp_id'], $year, $month);
-    $salary = calculate_employee_salary($emp, $stats, $settings);
-    $subject = 'Salary Slip - ' . $period . ' - ' . $emp['name'];
-    $email_html = render_salary_slip_email_html($emp, $salary, $settings, $year, $month);
-    $pdf_binary = generate_salary_slip_pdf($emp, $salary, $settings, $year, $month);
-    $pdf_filename = salary_slip_pdf_filename($emp, $year, $month);
-
-    if ($mailer->send($emp['email'], $emp['name'], $subject, $email_html, $pdf_binary, $pdf_filename)) {
+    $result = send_single_salary_slip($conn, $emp, $year, $month, $settings, $mailer);
+    if ($result['success']) {
         $sent++;
-        $log = $conn->prepare("
-            INSERT INTO salary_slip_logs (emp_id, period_month, period_year, net_salary, sent_to, status)
-            VALUES (?, ?, ?, ?, ?, 'sent')
-        ");
-        $net = $salary['net_salary'];
-        $log->bind_param('siids', $emp['emp_id'], $month, $year, $net, $emp['email']);
-        $log->execute();
     } else {
         $failed++;
-        $errors[] = $emp['emp_id'] . ': ' . ($mailer->getLastError() ?? 'Failed');
-        $log = $conn->prepare("
-            INSERT INTO salary_slip_logs (emp_id, period_month, period_year, net_salary, sent_to, status)
-            VALUES (?, ?, ?, ?, ?, 'failed')
-        ");
-        $net = $salary['net_salary'];
-        $email = $emp['email'];
-        $log->bind_param('siids', $emp['emp_id'], $month, $year, $net, $email);
-        $log->execute();
+        $errors[] = $emp['emp_id'] . ': ' . ($result['error'] ?? 'Failed');
     }
 }
 
@@ -155,8 +156,6 @@ if ($failed > 0) {
     $msg .= ", {$failed} failed";
     if (count($errors) <= 3) {
         $msg .= ' — ' . implode('; ', $errors);
-    } else {
-        $msg .= ' — ' . implode('; ', array_slice($errors, 0, 2)) . '…';
     }
 }
 

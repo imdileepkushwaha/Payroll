@@ -257,8 +257,8 @@ function build_salary_component_breakdown(array $salary, $settings = [])
 
 function get_employee_payroll_bundle($conn, $employee, $year, $month, $settings)
 {
-    $stats = get_attendance_stats_for_period($conn, $employee['emp_id'], $year, $month);
-    $salary = calculate_employee_salary($employee, $stats, $settings);
+    $stats = get_attendance_stats_extended($conn, $employee['emp_id'], $year, $month, $settings);
+    $salary = calculate_employee_salary_full($conn, $employee, $year, $month, $settings);
 
     return [
         'stats' => $stats,

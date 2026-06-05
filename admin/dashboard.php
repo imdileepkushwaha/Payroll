@@ -2,7 +2,7 @@
 require 'includes/header.php';
 require 'config.php';
 require 'includes/settings_helper.php';
-require 'includes/salary_helper.php';
+require_once 'includes/salary_helper.php';
 require 'includes/employee_helper.php';
 require_once 'includes/csrf_helper.php';
 
@@ -35,8 +35,8 @@ while ($emp = $employees_result->fetch_assoc()) {
         $active_employee_count++;
     }
 
-    $stats = get_attendance_stats_for_period($conn, $emp['emp_id'], $payroll_year, $payroll_month);
-    $salary = calculate_employee_salary($emp, $stats, $settings);
+    $stats = get_attendance_stats_extended($conn, $emp['emp_id'], $payroll_year, $payroll_month, $settings);
+    $salary = calculate_employee_salary_full($conn, $emp, $payroll_year, $payroll_month, $settings);
     $has_attendance = $stats['total_records'] > 0;
 
     if ($has_attendance) {
@@ -76,8 +76,18 @@ foreach ($slip_status_map as $entry) {
 }
 
 $slip_eligible_count = count($slip_eligible_rows);
+$slip_pending_count = 0;
+foreach ($slip_eligible_rows as $row) {
+    $sent_info = $slip_status_map[$row['employee']['emp_id']] ?? null;
+    if (($sent_info['status'] ?? '') !== 'sent') {
+        $slip_pending_count++;
+    }
+}
 $company_name = $settings['company_name'] ?? 'Company';
 $working_days = (int) get_working_days_per_month($settings);
+$payroll_period = get_payroll_period($conn, $payroll_year, $payroll_month);
+$period_status = $payroll_period['status'] ?? 'open';
+$period_locked = $period_status === 'locked';
 
 ?>
 <div class="dashboard-page">
@@ -122,6 +132,13 @@ $working_days = (int) get_working_days_per_month($settings);
         <div>
             <strong><?php echo (int) $slips_sent_count; ?> / <?php echo (int) $slip_eligible_count; ?> slips sent</strong>
             <span><?php echo $slips_failed_count > 0 ? (int) $slips_failed_count . ' failed · ' : ''; ?>Eligible active employees</span>
+        </div>
+    </div>
+    <div class="settings-status-chip <?php echo $period_status === 'approved' || $period_status === 'locked' ? 'ok' : ($period_status === 'review' ? 'warn' : 'neutral'); ?>">
+        <span class="status-dot"></span>
+        <div>
+            <strong>Payroll: <?php echo htmlspecialchars(payroll_period_status_label($period_status)); ?></strong>
+            <span><?php echo $period_locked ? 'Attendance locked' : 'Approve before bulk send'; ?></span>
         </div>
     </div>
 </div>
@@ -216,8 +233,12 @@ $working_days = (int) get_working_days_per_month($settings);
                 </div>
             </div>
             <div id="slipSendStatus" class="slip-send-status" role="status" aria-live="polite" hidden></div>
+            <div class="dashboard-send-options">
+                <label class="slip-select-all-label"><input type="checkbox" name="include_already_sent" value="1"> Include already sent</label>
+                <label class="slip-select-all-label"><input type="checkbox" name="resend_failed_only" value="1"> Resend failed only</label>
+            </div>
             <div class="slip-select-toolbar">
-                <label class="slip-select-all-label"><input type="checkbox" id="slipSelectAll" checked> Select all eligible (<?php echo (int) $slip_eligible_count; ?>)</label>
+                <label class="slip-select-all-label"><input type="checkbox" id="slipSelectAll" checked> Select all pending (<?php echo (int) $slip_pending_count; ?>)</label>
                 <a href="slip_logs.php?month=<?php echo $payroll_month; ?>&year=<?php echo $payroll_year; ?>" class="btn-link">Slip history</a>
             </div>
             <?php if ($slip_eligible_count > 0): ?>
@@ -225,10 +246,11 @@ $working_days = (int) get_working_days_per_month($settings);
                     <?php foreach ($slip_eligible_rows as $row):
                         $emp = $row['employee'];
                         $sent = $slip_status_map[$emp['emp_id']] ?? null;
+                        $already_sent = ($sent['status'] ?? '') === 'sent';
                         $initial = strtoupper(substr($emp['name'], 0, 1));
                         ?>
-                    <label class="slip-recipient-item">
-                        <input type="checkbox" name="emp_ids[]" value="<?php echo htmlspecialchars($emp['emp_id']); ?>" checked>
+                    <label class="slip-recipient-item<?php echo $already_sent ? ' slip-recipient-sent' : ''; ?>"<?php echo $already_sent ? ' hidden' : ''; ?>>
+                        <input type="checkbox" name="emp_ids[]" value="<?php echo htmlspecialchars($emp['emp_id']); ?>"<?php echo $already_sent ? '' : ' checked'; ?>>
                         <span class="slip-recipient-avatar" aria-hidden="true"><?php echo htmlspecialchars($initial); ?></span>
                         <span class="slip-recipient-info">
                             <span class="slip-recipient-name"><?php echo htmlspecialchars($emp['name']); ?></span>
@@ -281,13 +303,22 @@ $working_days = (int) get_working_days_per_month($settings);
         </form>
     </div>
     <div class="dashboard-aside-card">
-        <h4>Quick links</h4>
-        <nav class="dashboard-quick-links">
-            <a href="upload_attendance.php"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload attendance</a>
-            <a href="reports.php?month=<?php echo $payroll_month; ?>&year=<?php echo $payroll_year; ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Reports</a>
-            <a href="slip_logs.php?month=<?php echo $payroll_month; ?>&year=<?php echo $payroll_year; ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Slip history</a>
-            <a href="settings.php?tab=smtp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> SMTP settings</a>
-        </nav>
+        <h4>Payroll period</h4>
+        <p class="dashboard-aside-desc">Approve or lock this month before sending slips.</p>
+        <form method="POST" action="payroll_period_save.php" class="dashboard-period-actions">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="month" value="<?php echo $payroll_month; ?>">
+            <input type="hidden" name="year" value="<?php echo $payroll_year; ?>">
+            <?php if ($period_status === 'open'): ?>
+                <button type="submit" name="period_action" value="submit_review" class="btn btn-outline btn-sm btn-block">Submit for review</button>
+            <?php elseif ($period_status === 'review'): ?>
+                <button type="submit" name="period_action" value="approve" class="btn btn-sm btn-block">Approve payroll</button>
+            <?php elseif ($period_status === 'approved'): ?>
+                <button type="submit" name="period_action" value="lock" class="btn btn-outline btn-sm btn-block">Lock period</button>
+            <?php else: ?>
+                <button type="submit" name="period_action" value="reopen" class="btn btn-outline btn-sm btn-block">Reopen period</button>
+            <?php endif; ?>
+        </form>
     </div>
 </aside>
 </div>
@@ -414,10 +445,35 @@ $working_days = (int) get_working_days_per_month($settings);
     var statusEl = document.getElementById('slipSendStatus');
     if (!form) return;
 
+    var includeSentCb = form.querySelector('input[name="include_already_sent"]');
+
+    function visibleRecipientItems() {
+        return Array.prototype.filter.call(form.querySelectorAll('.slip-recipient-item'), function (el) {
+            return !el.hidden;
+        });
+    }
+
+    function syncSentVisibility() {
+        var showSent = includeSentCb && includeSentCb.checked;
+        form.querySelectorAll('.slip-recipient-sent').forEach(function (el) {
+            el.hidden = !showSent;
+            if (!showSent) {
+                var cb = el.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = false;
+            }
+        });
+    }
+
+    if (includeSentCb) {
+        includeSentCb.addEventListener('change', syncSentVisibility);
+    }
+    syncSentVisibility();
+
     if (selectAll) {
         selectAll.addEventListener('change', function () {
-            form.querySelectorAll('input[name="emp_ids[]"]').forEach(function (cb) {
-                cb.checked = selectAll.checked;
+            visibleRecipientItems().forEach(function (el) {
+                var cb = el.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = selectAll.checked;
             });
         });
     }

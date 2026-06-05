@@ -19,3 +19,4 @@ $conn->set_charset('utf8mb4');
 
 require_once __DIR__ . '/includes/schema.php';
 ensure_database_schema($conn);
+require_once __DIR__ . '/includes/payroll_extensions.php';

@@ -2704,6 +2704,56 @@ table tbody tr:last-child td {
     line-height: 1.2;
 }
 
+.ev-adj-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ev-adj-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+}
+
+.ev-adj-list .ev-adj-amount.bonus {
+    color: #047857;
+    font-weight: 700;
+}
+
+.ev-adj-list .ev-adj-amount.deduction {
+    color: #b91c1c;
+    font-weight: 700;
+}
+
+.ev-lock-note {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    color: #92400e;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
 .ev-info-card-badge {
     flex-shrink: 0;
     font-size: 0.65rem;
@@ -3344,6 +3394,29 @@ table tbody tr:last-child td {
 .att-cal-cell.att-cal-today {
     border-color: var(--primary);
     box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+}
+
+.att-cal-cell-clickable {
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+}
+
+.att-cal-cell-clickable:hover,
+.att-cal-cell-clickable:focus-visible {
+    transform: translateY(-1px);
+    border-color: #a5b4fc;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    outline: none;
+}
+
+.att-cal-holiday {
+    background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+    border-color: #fed7aa;
+}
+
+.att-cal-holiday-code {
+    color: #c2410c;
+    font-weight: 800;
 }
 
 .att-cal-day-num {
@@ -4231,6 +4304,50 @@ table tbody tr:last-child td {
     flex-wrap: wrap;
 }
 
+.dashboard-panel-head-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.dashboard-panel-period-filter {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.dashboard-panel-period-filter .form-group {
+    margin: 0;
+    min-width: 120px;
+}
+
+.dashboard-panel-period-filter label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.dashboard-panel-period-filter select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    background: var(--card);
+}
+
+.dashboard-panel-total-inline {
+    margin-left: 0;
+    align-self: center;
+    white-space: nowrap;
+}
+
 .dashboard-panel-head h3 {
     font-size: 1.1rem;
     font-weight: 700;
@@ -4443,6 +4560,34 @@ table tbody tr:last-child td {
     cursor: pointer;
 }
 
+.dashboard-send-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.dashboard-period-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.slip-recipient-sent {
+    opacity: 0.85;
+}
+
+.slip-recipient-sent .slip-recipient-meta::after {
+    content: ' · already sent';
+    color: #047857;
+    font-weight: 600;
+}
+
 .dashboard-aside {
     display: flex;
     flex-direction: column;
@@ -4475,7 +4620,7 @@ table tbody tr:last-child td {
 
 .dashboard-period-form {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 12px;
 }
 
@@ -4494,38 +4639,6 @@ table tbody tr:last-child td {
     font-size: 0.875rem;
     font-family: inherit;
     background: var(--card);
-}
-
-.dashboard-quick-links {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 12px;
-}
-
-.dashboard-quick-links a {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--text);
-    text-decoration: none;
-    transition: background var(--transition), color var(--transition);
-}
-
-.dashboard-quick-links a svg {
-    width: 16px;
-    height: 16px;
-    color: var(--primary);
-    flex-shrink: 0;
-}
-
-.dashboard-quick-links a:hover {
-    background: var(--bg);
-    color: var(--primary);
 }
 
 .dashboard-table-wrap {
@@ -4569,10 +4682,7 @@ table tbody tr:last-child td {
 }
 
 .slip-logs-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 280px;
-    gap: 24px;
-    align-items: start;
+    display: block;
 }
 
 .slip-logs-panel {
@@ -4730,12 +4840,6 @@ table tbody tr:last-child td {
     justify-content: center;
 }
 
-.slip-logs-aside {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
 /* ========== DASHBOARD SLIP FORM ========== */
 .panel-action {
     margin-bottom: 28px;
@@ -4762,13 +4866,11 @@ table tbody tr:last-child td {
 
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1024px) {
-    .dashboard-grid,
-    .slip-logs-layout {
+    .dashboard-grid {
         grid-template-columns: 1fr;
     }
 
-    .dashboard-aside,
-    .slip-logs-aside {
+    .dashboard-aside {
         flex-direction: row;
         flex-wrap: wrap;
     }
@@ -4781,6 +4883,18 @@ table tbody tr:last-child td {
         width: 100%;
         margin-left: 0;
         margin-top: 8px;
+    }
+
+    .dashboard-panel-head-actions {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 8px;
+        justify-content: flex-end;
+    }
+
+    .dashboard-panel-total-inline {
+        width: auto;
+        margin-top: 0;
     }
 
     .slip-logs-stats {

@@ -20,6 +20,16 @@ if (!$pending || empty($pending['rows'])) {
     exit;
 }
 
+$upload_year = (int) ($pending['year'] ?? date('Y'));
+$upload_month = (int) ($pending['month'] ?? date('n'));
+if (is_payroll_period_locked($conn, $upload_year, $upload_month)) {
+    unset($_SESSION['upload_pending']);
+    $_SESSION['upload_success'] = false;
+    $_SESSION['upload_message'] = 'This payroll period is locked. Reopen it from the dashboard before importing attendance.';
+    header('Location: upload_attendance.php?month=' . $upload_month . '&year=' . $upload_year);
+    exit;
+}
+
 $result = process_attendance_upload($conn, $pending['rows'], (int) $pending['year'], (int) $pending['month'], false);
 unset($_SESSION['upload_pending']);
 

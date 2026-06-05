@@ -2,7 +2,7 @@
 require 'includes/header.php';
 require 'config.php';
 require 'includes/settings_helper.php';
-require 'includes/salary_helper.php';
+require_once 'includes/salary_helper.php';
 require 'includes/employee_helper.php';
 
 $settings = get_all_settings($conn);
@@ -16,11 +16,11 @@ $employees = $conn->query('SELECT * FROM employees ORDER BY department, name');
 
 while ($emp = $employees->fetch_assoc()) {
     $dept = trim($emp['department'] ?? '') ?: 'Unassigned';
-    $stats = get_attendance_stats_for_period($conn, $emp['emp_id'], $year, $month);
+    $stats = get_attendance_stats_extended($conn, $emp['emp_id'], $year, $month, $settings);
     if ($stats['total_records'] === 0) {
         continue;
     }
-    $salary = calculate_employee_salary($emp, $stats, $settings);
+    $salary = calculate_employee_salary_full($conn, $emp, $year, $month, $settings);
     if (!isset($by_dept[$dept])) {
         $by_dept[$dept] = ['count' => 0, 'net' => 0.0, 'gross' => 0.0];
     }

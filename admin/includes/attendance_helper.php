@@ -88,7 +88,7 @@ function get_adjacent_period($month, $year, $delta_months)
     return [(int) date('n', $ts), (int) date('Y', $ts)];
 }
 
-function render_attendance_calendar($year, $month, array $attendance_by_date, $today_day = 0)
+function render_attendance_calendar($year, $month, array $attendance_by_date, $today_day = 0, array $holidays_map = [], $editable = false, array $attendance_detail = [])
 {
     $days_in_month = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
     $calendar_start_dow = (int) date('w', mktime(0, 0, 0, $month, 1, $year));
@@ -112,21 +112,41 @@ function render_attendance_calendar($year, $month, array $attendance_by_date, $t
                 $raw_status = $attendance_by_date[$date_key] ?? null;
                 $code = $raw_status !== null ? normalize_attendance_status_code($raw_status) : '';
                 $has_record = $raw_status !== null;
+                $is_holiday = isset($holidays_map[$date_key]);
                 $is_today = ($today_day > 0 && $day === $today_day);
                 $cell_class = 'att-cal-cell';
+                if ($editable) {
+                    $cell_class .= ' att-cal-cell-clickable';
+                }
                 if ($is_today) {
                     $cell_class .= ' att-cal-today';
+                }
+                if ($is_holiday) {
+                    $cell_class .= ' att-cal-holiday';
                 }
                 if (!$has_record) {
                     $cell_class .= ' att-cal-no-record';
                 }
                 $title = $has_record
                     ? $date_key . ' — ' . attendance_code_label($code) . ' (' . $raw_status . ')'
-                    : $date_key . ' — No record';
+                    : ($is_holiday ? $date_key . ' — ' . ($holidays_map[$date_key]['name'] ?? 'Holiday') : $date_key . ' — No record');
+                $data_attrs = '';
+                if ($editable) {
+                    $detail = $attendance_detail[$date_key] ?? null;
+                    $leave_type = $detail['leave_type'] ?? 'CL';
+                    $ot_hrs = $detail['overtime_hours'] ?? '0';
+                    $data_attrs = ' data-date="' . htmlspecialchars($date_key) . '"'
+                        . ' data-status="' . htmlspecialchars($raw_status ?? 'Present') . '"'
+                        . ' data-leave-type="' . htmlspecialchars($leave_type) . '"'
+                        . ' data-overtime="' . htmlspecialchars((string) $ot_hrs) . '"'
+                        . ' role="button" tabindex="0"';
+                }
                 ?>
-                <div class="<?php echo $cell_class; ?>" title="<?php echo htmlspecialchars($title); ?>">
+                <div class="<?php echo $cell_class; ?>" title="<?php echo htmlspecialchars($title); ?>"<?php echo $data_attrs; ?>>
                     <span class="att-cal-day-num"><?php echo $day; ?></span>
-                    <?php if ($has_record && $code !== ''): ?>
+                    <?php if ($is_holiday && !$has_record): ?>
+                        <span class="att-cal-code att-cal-holiday-code">HO</span>
+                    <?php elseif ($has_record && $code !== ''): ?>
                         <span class="att-cal-code <?php echo attendance_code_css_class($code); ?>"><?php echo htmlspecialchars($code); ?></span>
                     <?php elseif ($has_record): ?>
                         <span class="att-cal-code att-code-unknown" title="<?php echo htmlspecialchars($raw_status); ?>">?</span>

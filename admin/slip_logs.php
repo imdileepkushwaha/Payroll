@@ -1,7 +1,7 @@
 <?php
 require 'includes/header.php';
 require 'config.php';
-require 'includes/salary_helper.php';
+require_once 'includes/salary_helper.php';
 
 $month = (int) ($_GET['month'] ?? date('n'));
 $year = (int) ($_GET['year'] ?? date('Y'));
@@ -96,9 +96,27 @@ $employee_count = count($unique_employees);
                     <h3>Delivery log</h3>
                     <p>Newest attempts first · up to 500 records</p>
                 </div>
-                <?php if ($sent_count > 0): ?>
-                    <span class="dashboard-panel-total">₹<?php echo format_money($total_net_sent); ?></span>
-                <?php endif; ?>
+                <div class="dashboard-panel-head-actions">
+                    
+                    <form method="GET" class="dashboard-panel-period-filter dashboard-period-form">
+                        <div class="form-group">
+                            <label for="slip-log-month">Month</label>
+                            <select name="month" id="slip-log-month" onchange="this.form.submit()">
+                                <?php for ($m = 1; $m <= 12; $m++): ?>
+                                    <option value="<?php echo $m; ?>" <?php echo $m === $month ? 'selected' : ''; ?>><?php echo date('F', mktime(0, 0, 0, $m, 1)); ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="slip-log-year">Year</label>
+                            <select name="year" id="slip-log-year" onchange="this.form.submit()">
+                                <?php for ($y = (int) date('Y'); $y >= (int) date('Y') - 5; $y--): ?>
+                                    <option value="<?php echo $y; ?>" <?php echo $y === $year ? 'selected' : ''; ?>><?php echo $y; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                    </form>
+                </div>
             </div>
             <div class="panel-body padded">
                 <?php if ($entry_count > 0): ?>
@@ -197,39 +215,6 @@ $employee_count = count($unique_employees);
                 <?php endif; ?>
             </div>
         </div>
-
-        <aside class="slip-logs-aside">
-            <div class="dashboard-aside-card">
-                <h4>Period filter</h4>
-                <p class="dashboard-aside-desc">View delivery history for another month.</p>
-                <form method="GET" class="dashboard-period-form">
-                    <div class="form-group">
-                        <label for="slip-log-month">Month</label>
-                        <select name="month" id="slip-log-month" onchange="this.form.submit()">
-                            <?php for ($m = 1; $m <= 12; $m++): ?>
-                                <option value="<?php echo $m; ?>" <?php echo $m === $month ? 'selected' : ''; ?>><?php echo date('F', mktime(0, 0, 0, $m, 1)); ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="slip-log-year">Year</label>
-                        <select name="year" id="slip-log-year" onchange="this.form.submit()">
-                            <?php for ($y = (int) date('Y'); $y >= (int) date('Y') - 5; $y--): ?>
-                                <option value="<?php echo $y; ?>" <?php echo $y === $year ? 'selected' : ''; ?>><?php echo $y; ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="dashboard-aside-card">
-                <h4>Quick links</h4>
-                <nav class="dashboard-quick-links">
-                    <a href="dashboard.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Dashboard</a>
-                    <a href="reports.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Reports</a>
-                    <a href="employees.php"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Employees</a>
-                </nav>
-            </div>
-        </aside>
     </div>
 </div>
 
