@@ -1,11 +1,13 @@
 <?php
 require 'includes/header.php';
+require 'config.php';
 $upload_month = (int) ($_GET['month'] ?? date('n'));
 $upload_year = (int) ($_GET['year'] ?? date('Y'));
 if ($upload_month < 1 || $upload_month > 12) {
     $upload_month = (int) date('n');
 }
 $upload_period_label = date('F Y', mktime(0, 0, 0, $upload_month, 1, $upload_year));
+$upload_period_locked = is_payroll_period_locked($conn, $upload_year, $upload_month);
 ?>
 
 <div class="page-header page-header-row">
@@ -14,7 +16,17 @@ $upload_period_label = date('F Y', mktime(0, 0, 0, $upload_month, 1, $upload_yea
         <h2>Upload Attendance</h2>
         <p>Bulk import employee attendance from CSV or Excel files.</p>
     </div>
+    <div class="page-header-actions">
+        <a href="holidays.php?month=<?php echo $upload_month; ?>&year=<?php echo $upload_year; ?>" class="btn btn-outline">Holidays</a>
+        <a href="attendance_audit.php" class="btn btn-outline">Audit log</a>
+    </div>
 </div>
+
+<?php if ($upload_period_locked): ?>
+    <div class="alert alert-error alert-page">
+        <strong>Period locked.</strong> <?php echo htmlspecialchars($upload_period_label); ?> payroll is finalized. Reopen the period from the dashboard to import or edit attendance.
+    </div>
+<?php endif; ?>
 
 <?php
 if (isset($_SESSION['upload_message'])) {
@@ -54,8 +66,9 @@ if (isset($_SESSION['upload_message'])) {
         </form>
         <?php endif; ?>
 
-        <form action="process_upload.php" method="POST" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+        <form action="process_upload.php" method="POST" enctype="multipart/form-data" class="upload-form" id="uploadForm"<?php echo $upload_period_locked ? ' data-locked="1"' : ''; ?>>
             <?php require_once 'includes/csrf_helper.php'; echo csrf_field(); ?>
+            <?php if ($upload_period_locked): ?><fieldset disabled><?php endif; ?>
             <div class="upload-period-picker">
                 <div class="upload-period-label">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -110,6 +123,7 @@ if (isset($_SESSION['upload_message'])) {
                     Upload &amp; import now
                 </button>
             </div>
+            <?php if ($upload_period_locked): ?></fieldset><?php endif; ?>
         </form>
     </section>
 

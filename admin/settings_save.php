@@ -92,6 +92,11 @@ if ($section === 'payroll') {
     set_setting($conn, 'esi_gross_limit', trim($_POST['esi_gross_limit'] ?? '21000'));
     set_setting($conn, 'leave_day_credit', trim($_POST['leave_day_credit'] ?? '1'));
     set_setting($conn, 'half_day_credit', trim($_POST['half_day_credit'] ?? '0.5'));
+    set_setting($conn, 'tds_enabled', !empty($_POST['tds_enabled']) ? '1' : '0');
+    set_setting($conn, 'tds_standard_deduction', trim($_POST['tds_standard_deduction'] ?? '75000'));
+    set_setting($conn, 'overtime_hours_per_day', trim($_POST['overtime_hours_per_day'] ?? '8'));
+    set_setting($conn, 'overtime_multiplier', trim($_POST['overtime_multiplier'] ?? '1.5'));
+    set_setting($conn, 'require_payroll_approval', !empty($_POST['require_payroll_approval']) ? '1' : '0');
 
     $messages = ['Payroll settings saved.'];
 

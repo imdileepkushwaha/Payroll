@@ -272,6 +272,39 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
                     </div>
                 </div>
                 <div class="settings-form-section">
+                    <h4>TDS &amp; payroll workflow</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="tds_enabled" value="1" <?php echo !empty($settings['tds_enabled']) && (int) $settings['tds_enabled'] === 1 ? 'checked' : ''; ?>>
+                                Enable TDS deduction (Form 16)
+                            </label>
+                            <span class="form-hint">Uses simplified new/old regime slabs per employee profile</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="require_payroll_approval" value="1" <?php echo !isset($settings['require_payroll_approval']) || (int) $settings['require_payroll_approval'] === 1 ? 'checked' : ''; ?>>
+                                Require payroll approval before sending slips
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Standard deduction (₹/year)</label>
+                            <input type="number" name="tds_standard_deduction" step="1000" min="0" value="<?php echo htmlspecialchars($settings['tds_standard_deduction'] ?? '75000'); ?>">
+                        </div>
+                        <div class="form-group">
+                            <label>Overtime hours / day</label>
+                            <input type="number" name="overtime_hours_per_day" step="0.5" min="1" max="24" value="<?php echo htmlspecialchars($settings['overtime_hours_per_day'] ?? '8'); ?>">
+                        </div>
+                        <div class="form-group">
+                            <label>OT pay multiplier</label>
+                            <input type="number" name="overtime_multiplier" step="0.1" min="1" max="3" value="<?php echo htmlspecialchars($settings['overtime_multiplier'] ?? '1.5'); ?>">
+                            <span class="form-hint">e.g. 1.5× hourly rate</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-form-section">
                     <h4>Payslip authorized signature</h4>
                     <p class="form-hint" style="margin-bottom:16px">Upload a PNG/JPG signature image. It will appear on the bottom-right of every salary slip PDF.</p>
                     <?php if ($signature_url): ?>

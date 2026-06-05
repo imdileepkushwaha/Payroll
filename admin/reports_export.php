@@ -3,7 +3,7 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require 'config.php';
 require 'includes/settings_helper.php';
-require 'includes/salary_helper.php';
+require_once 'includes/salary_helper.php';
 require 'includes/employee_helper.php';
 
 $month = (int) ($_GET['month'] ?? date('n'));
@@ -21,8 +21,8 @@ fputcsv($out, ['Emp ID', 'Name', 'Department', 'Active', 'Present', 'Half', 'Lea
 
 $employees = $conn->query('SELECT * FROM employees ORDER BY name');
 while ($emp = $employees->fetch_assoc()) {
-    $stats = get_attendance_stats_for_period($conn, $emp['emp_id'], $year, $month);
-    $salary = calculate_employee_salary($emp, $stats, $settings);
+    $stats = get_attendance_stats_extended($conn, $emp['emp_id'], $year, $month, $settings);
+    $salary = calculate_employee_salary_full($conn, $emp, $year, $month, $settings);
     $bd = $salary['breakdown'];
     fputcsv($out, [
         $emp['emp_id'],

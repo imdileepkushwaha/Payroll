@@ -41,6 +41,13 @@ if ($upload_month < 1 || $upload_month > 12 || $upload_year < 2000) {
     exit;
 }
 
+if (is_payroll_period_locked($conn, $upload_year, $upload_month)) {
+    $_SESSION['upload_success'] = false;
+    $_SESSION['upload_message'] = 'This payroll period is locked. Reopen it from the dashboard before importing attendance.';
+    header('Location: upload_attendance.php?month=' . $upload_month . '&year=' . $upload_year);
+    exit;
+}
+
 $parsed = read_attendance_file_rows($file['tmp_name'], $file_ext);
 
 if (isset($parsed['error'])) {
